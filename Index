@@ -99,7 +99,7 @@
 <script>
 /* ---------- CONFIG ---------- */
 // ¡IMPORTANTE! REEMPLAZA ESTA URL CON LA DE TU WEB APP DE APPS SCRIPT (ver Paso 2)
-const WEB_APP_URL = 'https://script.google.com/macros/s/TU_ID_DE_PROYECTO/exec';
+const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxjwAjmTVwteVHYZFyQgternZ8NQwv04ktLSz91WJTsMnU3VU_oen0m5nacS0qzNoUVUQ/exec';
 
 const DIAS = ['Lun','Mar','Mié','Jue','Vie'];   // Lunes‑Viernes
 const HORA_INI = 8;   // 08:00
