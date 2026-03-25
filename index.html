@@ -127,7 +127,7 @@
 </div>
 
 <script>
-const WEB_APP_URL='https://script.google.com/macros/s/AKfycbxw-ft1VZ4H-udfqkzNQTlmUhdQqd2c5COP2O_HfPwwryo6HieEzPUM2II1JBJiNUg/exec';
+const WEB_APP_URL='https://script.google.com/macros/s/AKfycbzjx9tOD_s68F1jO2sYXHeOIzxDOYLqla2o_PVWskC7IdzyET7dJoym_NoDUhxoLry80g/exec';
 const DIAS=['Lun','Mar','Mié','Jue','Vie'];
 const HORA_INI=8, HORA_FIN=17, INTERVALO=30;
 
@@ -149,41 +149,24 @@ function generarHoras(){
 const HORAS=generarHoras();
 function setInfo(msg){document.getElementById('info').textContent=msg;}
 
-/*
-  NORMALIZACION DEFINITIVA
-  Fecha viene como: "2026-03-30T03:00:00.000Z"  -> extraer YYYY-MM-DD en UTC
-  Hora viene como:  "1899-12-30T20:42:45.000Z"  -> extraer HH:MM en UTC
-  Apps Script serializa las horas de Sheets como fechas 1899-12-30 + fraccion del dia en UTC.
-  La hora UTC del string ES la hora real que escribio el usuario.
-*/
 function normFecha(v){
     if(!v) return '';
     const s=String(v).trim();
-    // ISO con T: extraer parte de fecha en UTC
+    if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
     const mISO=s.match(/^(\d{4})-(\d{2})-(\d{2})T/);
     if(mISO) return `${mISO[1]}-${mISO[2]}-${mISO[3]}`;
-    // YYYY-MM-DD simple
-    if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-    // DD/MM/YYYY
     const m1=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
     if(m1) return `${m1[3]}-${pad(m1[2])}-${pad(m1[1])}`;
-    // fallback: Date constructor UTC
     const d=new Date(s);
     if(!isNaN(d)) return `${d.getUTCFullYear()}-${pad(d.getUTCMonth()+1)}-${pad(d.getUTCDate())}`;
     return s.substring(0,10);
 }
 function normHora(v){
     if(v===null||v===undefined||v==='') return '';
-    // numero decimal (fraccion del dia)
-    if(typeof v==='number'){
-        const total=Math.round(v*24*60);
-        return `${pad(Math.floor(total/60))}:${pad(total%60)}`;
-    }
+    if(typeof v==='number'){const t=Math.round(v*24*60);return `${pad(Math.floor(t/60))}:${pad(t%60)}`;}
     const s=String(v).trim();
-    // ISO con T: extraer HH:MM en UTC (la hora real guardada esta en UTC)
     const mISO=s.match(/T(\d{2}):(\d{2})/);
     if(mISO) return `${mISO[1]}:${mISO[2]}`;
-    // HH:MM o HH:MM:SS
     const m=s.match(/^(\d{1,2}):(\d{2})/);
     if(m) return `${pad(parseInt(m[1]))}:${m[2]}`;
     return s.substring(0,5);
@@ -267,7 +250,6 @@ function renderCalendario(fechaISO){
     });
 }
 
-/* ---- Selección de rango ---- */
 function clicSlotLibre(elem,fecha,hora){
     if(!slotInicio){
         slotInicio={fecha,hora};
@@ -343,7 +325,6 @@ async function guardarReserva(){
     }finally{btn.innerHTML='✅ Reservar selección';}
 }
 
-/* ---- Modal editar ---- */
 function actualizarResumen(){
     const ni=document.getElementById('editHoraInicio').value;
     const nf=document.getElementById('editHoraFin').value;
@@ -400,7 +381,6 @@ async function eliminarReserva(){
     finally{btn.innerHTML='🗑️ Eliminar';btn.disabled=false;}
 }
 
-/* ---- Eventos ---- */
 document.getElementById('btnVerCal').addEventListener('click',()=>{
     const fecha=document.getElementById('semanaInput').value;
     if(!fecha){alert('Seleccione una fecha');return;}
@@ -414,7 +394,6 @@ document.getElementById('closeModal').addEventListener('click',cerrarModal);
 document.getElementById('cancelEdit').addEventListener('click',cerrarModal);
 window.addEventListener('click',e=>{if(e.target===document.getElementById('editModal'))cerrarModal();});
 
-/* ---- Init ---- */
 const hoy=new Date().toISOString().split('T')[0];
 document.getElementById('semanaInput').min=hoy;
 document.getElementById('semanaInput').value=hoy;
