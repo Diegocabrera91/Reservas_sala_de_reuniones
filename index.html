@@ -44,8 +44,6 @@
                  padding:8px 14px;margin:8px 0;border-radius:6px;font-size:.88em;color:#2c3e50;}
     #info{margin-top:12px;padding:10px 14px;background:#f8f9fa;border-left:4px solid #27ae60;
           border-radius:6px;font-size:.9em;min-height:36px;color:#2d3436;}
-    #debug{margin-top:8px;padding:8px;background:#fff3cd;border-left:4px solid #f39c12;
-           border-radius:6px;font-size:.78em;color:#856404;display:none;word-break:break-all;}
     .modal{display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;
            overflow:auto;background:rgba(0,0,0,.5);}
     .modal-content{background:#fff;margin:6% auto;padding:26px;border-radius:10px;width:93%;max-width:440px;}
@@ -91,7 +89,6 @@
     </div>
     <div id="calendar"></div>
     <div id="info">Cargando calendario...</div>
-    <div id="debug"></div>
 </div>
 
 <!-- Modal Editar -->
@@ -111,11 +108,11 @@
             <div class="form-row">
                 <div class="form-group">
                     <label>Hora inicio:</label>
-                    <input type="time" id="editHoraInicio" required step="1800">
+                    <input type="time" id="editHoraInicio" required>
                 </div>
                 <div class="form-group">
                     <label>Hora fin:</label>
-                    <input type="time" id="editHoraFin" required step="1800">
+                    <input type="time" id="editHoraFin" required>
                 </div>
             </div>
             <div id="editResumen" style="background:#eafaf1;border-left:3px solid #27ae60;
@@ -151,37 +148,42 @@ function generarHoras(){
 }
 const HORAS=generarHoras();
 function setInfo(msg){document.getElementById('info').textContent=msg;}
-function showDebug(msg){
-    const d=document.getElementById('debug');
-    d.style.display='block';
-    d.textContent=msg;
-}
 
-/* ---- Normalización robusta de fecha y hora ---- */
+/*
+  NORMALIZACION DEFINITIVA
+  Fecha viene como: "2026-03-30T03:00:00.000Z"  -> extraer YYYY-MM-DD en UTC
+  Hora viene como:  "1899-12-30T20:42:45.000Z"  -> extraer HH:MM en UTC
+  Apps Script serializa las horas de Sheets como fechas 1899-12-30 + fraccion del dia en UTC.
+  La hora UTC del string ES la hora real que escribio el usuario.
+*/
 function normFecha(v){
     if(!v) return '';
     const s=String(v).trim();
-    // YYYY-MM-DD (ya correcto)
+    // ISO con T: extraer parte de fecha en UTC
+    const mISO=s.match(/^(\d{4})-(\d{2})-(\d{2})T/);
+    if(mISO) return `${mISO[1]}-${mISO[2]}-${mISO[3]}`;
+    // YYYY-MM-DD simple
     if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-    // DD/MM/YYYY o DD-MM-YYYY
-    const m1=s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})/);
+    // DD/MM/YYYY
+    const m1=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
     if(m1) return `${m1[3]}-${pad(m1[2])}-${pad(m1[1])}`;
-    // YYYY/MM/DD
-    const m2=s.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})/);
-    if(m2) return `${m2[1]}-${pad(m2[2])}-${pad(m2[3])}`;
-    // Date string como "Mon Mar 25 2026..."
+    // fallback: Date constructor UTC
     const d=new Date(s);
-    if(!isNaN(d)) return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+    if(!isNaN(d)) return `${d.getUTCFullYear()}-${pad(d.getUTCMonth()+1)}-${pad(d.getUTCDate())}`;
     return s.substring(0,10);
 }
 function normHora(v){
-    if(!v && v!==0) return '';
-    // si viene como fraccion decimal (Sheets a veces guarda hora como decimal del día)
+    if(v===null||v===undefined||v==='') return '';
+    // numero decimal (fraccion del dia)
     if(typeof v==='number'){
         const total=Math.round(v*24*60);
         return `${pad(Math.floor(total/60))}:${pad(total%60)}`;
     }
     const s=String(v).trim();
+    // ISO con T: extraer HH:MM en UTC (la hora real guardada esta en UTC)
+    const mISO=s.match(/T(\d{2}):(\d{2})/);
+    if(mISO) return `${mISO[1]}:${mISO[2]}`;
+    // HH:MM o HH:MM:SS
     const m=s.match(/^(\d{1,2}):(\d{2})/);
     if(m) return `${pad(parseInt(m[1]))}:${m[2]}`;
     return s.substring(0,5);
@@ -197,15 +199,13 @@ async function cargarReservas(){
     setInfo('⏳ Cargando reservas...');
     try{
         const raw=await apiCall({action:'listar'});
-        // Mostrar primer item en debug para diagnosticar formato
-        if(raw.length>0) showDebug('🔍 RAW[0]: '+JSON.stringify(raw[0]));
         reservas=raw.map(r=>({
             ...r,
             nombre    : String(r.nombre||'').trim(),
             fecha     : normFecha(r.fecha),
             horaInicio: normHora(r.horaInicio),
             horaFin   : normHora(r.horaFin)
-        })).filter(r=>r.nombre && r.fecha && r.horaInicio && r.horaFin);
+        })).filter(r=>r.nombre&&r.fecha&&r.horaInicio&&r.horaFin);
         renderCalendario(document.getElementById('semanaInput').value);
         setInfo(`${reservas.length} reserva(s). Ingrese nombre, clic en inicio → fin y confirme.`);
     }catch(e){setInfo('❌ Error al cargar: '+e.message);}
@@ -219,7 +219,7 @@ function reservaDelSlot(fs,hora){
     return reservas.find(r=>{
         if(r.fecha!==fs) return false;
         const sm=toMin(hora);
-        return sm>=toMin(r.horaInicio) && sm<toMin(r.horaFin);
+        return sm>=toMin(r.horaInicio)&&sm<toMin(r.horaFin);
     });
 }
 
@@ -254,11 +254,9 @@ function renderCalendario(fechaISO){
                 const esInicio=(rx.horaInicio===hora);
                 celda.className=esInicio?'slot taken':'slot taken cont';
                 celda.title=`${rx.nombre}\n${rx.horaInicio}–${rx.horaFin}\nClic para editar`;
-                if(esInicio){
-                    celda.innerHTML=`<span class="t-nombre">${rx.nombre}</span><span class="t-hora">${rx.horaInicio}–${rx.horaFin}</span>`;
-                }else{
-                    celda.innerHTML=`<span class="t-nombre">${rx.nombre}</span>`;
-                }
+                celda.innerHTML=esInicio
+                    ?`<span class="t-nombre">${rx.nombre}</span><span class="t-hora">${rx.horaInicio}–${rx.horaFin}</span>`
+                    :`<span class="t-nombre">${rx.nombre}</span>`;
                 celda.addEventListener('click',()=>abrirModal(rx.id));
             }else{
                 celda.className='slot avail';
@@ -269,14 +267,14 @@ function renderCalendario(fechaISO){
     });
 }
 
-/* ---- Selección ---- */
+/* ---- Selección de rango ---- */
 function clicSlotLibre(elem,fecha,hora){
     if(!slotInicio){
         slotInicio={fecha,hora};
         elem.classList.remove('avail'); elem.classList.add('inicio');
         elem.innerHTML=`<span style="font-size:.82em">🟠 Inicio</span><span style="font-size:.78em">${hora}</span>`;
         setInfo(`Inicio: ${fecha} ${hora}. Ahora clic en el horario de FIN.`);
-        document.getElementById('instruccion').innerHTML='👉 <strong>Paso 2:</strong> Haga clic en el horario de <strong>fin</strong> de la reserva.';
+        document.getElementById('instruccion').innerHTML='👉 <strong>Paso 2:</strong> Haga clic en el horario de <strong>fin</strong>.';
         return;
     }
     if(fecha!==slotInicio.fecha){alert('Inicio y fin deben ser el mismo día.');return;}
@@ -297,13 +295,13 @@ function clicSlotLibre(elem,fecha,hora){
         const c=document.querySelector(`.slot[data-fecha="${fecha}"][data-hora="${HORAS[i]}"]`);
         if(c){
             c.classList.remove('avail','inicio'); c.classList.add('selected');
-            c.innerHTML = i===idx1
-                ? `<span class="t-nombre">🟢 ${nombre}</span><span class="t-hora">${slotInicio.hora}–${horaFinReal}</span>`
-                : `<span style="font-size:.76em;opacity:.85">${nombre}</span>`;
+            c.innerHTML=i===idx1
+                ?`<span class="t-nombre">🟢 ${nombre}</span><span class="t-hora">${slotInicio.hora}–${horaFinReal}</span>`
+                :`<span style="font-size:.76em;opacity:.85">${nombre}</span>`;
         }
     }
     setInfo(`✅ "${nombre}" — ${fecha} ${slotInicio.hora}–${horaFinReal}. Presione "Reservar selección".`);
-    document.getElementById('instruccion').innerHTML=`✅ <strong>${slotInicio.hora}–${horaFinReal}</strong> seleccionado. Presione <strong>"Reservar selección"</strong>.`;
+    document.getElementById('instruccion').innerHTML=`✅ <strong>${slotInicio.hora}–${horaFinReal}</strong>. Presione <strong>"Reservar selección"</strong>.`;
     document.getElementById('btnReservar').disabled=false;
     document.getElementById('btnCancelarSel').style.display='';
 }
@@ -352,14 +350,10 @@ function actualizarResumen(){
     const nd=document.getElementById('editFecha').value;
     const nm=document.getElementById('editNombre').value;
     const r=document.getElementById('editResumen');
-    if(ni&&nf&&nd){
-        r.style.display='block';
-        r.innerHTML=`📌 <strong>${nm||'Sin nombre'}</strong> — ${nd} ${ni}–${nf}`;
-    }
+    if(ni&&nf&&nd){r.style.display='block';r.innerHTML=`📌 <strong>${nm||'Sin nombre'}</strong> — ${nd} ${ni}–${nf}`;}
 }
-['editHoraInicio','editHoraFin','editFecha','editNombre'].forEach(id=>{
-    document.getElementById(id).addEventListener('input',actualizarResumen);
-});
+['editHoraInicio','editHoraFin','editFecha','editNombre'].forEach(id=>
+    document.getElementById(id).addEventListener('input',actualizarResumen));
 
 function abrirModal(id){
     const r=reservas.find(x=>x.id==id); if(!r) return;
