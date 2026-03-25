@@ -51,7 +51,7 @@
 
     <div class="controls">
         <label>Fecha de la semana:
-            <input type="date" id="semanaInput" min="">
+            <input type="date" id="semanaInput">
         </label>
         <label>Nombre / Asunto de la reserva:
             <input type="text" id="nombreReserva" placeholder="Ej. Reunión de proyecto">
@@ -98,18 +98,17 @@
 
 <script>
 /* ---------- CONFIG ---------- */
-// ¡IMPORTANTE! REEMPLAZA ESTA URL CON LA DE TU WEB APP DE APPS SCRIPT (ver Paso 2)
 const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxjwAjmTVwteVHYZFyQgternZ8NQwv04ktLSz91WJTsMnU3VU_oen0m5nacS0qzNoUVUQ/exec';
 
-const DIAS = ['Lun','Mar','Mié','Jue','Vie'];   // Lunes‑Viernes
-const HORA_INI = 8;   // 08:00
-const HORA_FIN = 17;  // último slot inicia a las 17:30
-const INTERVALO = 30; // minutos
+const DIAS = ['Lun','Mar','Mié','Jue','Vie'];
+const HORA_INI = 8;
+const HORA_FIN = 17;
+const INTERVALO = 30;
 /* --------------------------- */
 
-let reservas = [];   // Will be loaded from Google Sheets via Web App
-let reservaEnEdicion = null;   // {id, nombre, fecha, horaInicio, horaFin}
-let seleccionada = null;   // For new reservations: {fecha, horaInicio, horaFin, nombre}
+let reservas = [];
+let reservaEnEdicion = null;
+let seleccionada = null;
 
 /* ---------- UTILIDADES ---------- */
 function pad(n){return n<10?'0'+n:n;}
@@ -122,12 +121,12 @@ function generarHoras(){
     }
     return out;
 }
-const HORAS = generarHoras(); // ["08:00","08:30",...,"17:30"]
+const HORAS = generarHoras();
 
 function esSlotOcupado(fechaISO, hora, excluirId=null){
     const inicioSlot = new Date(`${fechaISO}T${hora}:00`);
     return reservas.some(r=>{
-        if (excluirId !== null && r.id === excluirId) return false; // Excluir la reserva siendo editada
+        if (excluirId !== null && r.id === excluirId) return false;
         const ini = new Date(`${r.fecha}T${r.horaInicio}:00`);
         const fin = new Date(`${r.fecha}T${r.horaFin}:00`);
         return inicioSlot>=ini && inicioSlot<fin;
@@ -139,17 +138,15 @@ function renderCalendario(fechaISO){
     const cont = document.getElementById('calendar');
     cont.innerHTML='';
 
-    // encabezado de horas (columna 0)
     const horaHead = document.createElement('div');
     horaHead.className='time-header';
     horaHead.textContent='Hora\\Día';
     cont.appendChild(horaHead);
 
-    // encabezados de días (columnas 1‑5)
-    const fechaBase = new Date(fechaISO);
-    const diaSemana = fechaBase.getDay(); // 0=Dom
+    const fechaBase = new Date(fechaISO + 'T12:00:00');
+    const diaSemana = fechaBase.getDay();
     const inicioSemana = new Date(fechaBase);
-    inicioSemana.setDate(fechaBase.getDate() - ((diaSemana+6)%7)); // lunes de la semana
+    inicioSemana.setDate(fechaBase.getDate() - ((diaSemana+6)%7));
 
     DIAS.forEach((dia,idx)=>{
         const diaHead = document.createElement('div');
@@ -160,22 +157,19 @@ function renderCalendario(fechaISO){
         cont.appendChild(diaHead);
     });
 
-    // celdas de horario
     HORAS.forEach(hora=>{
-        // celda de hora (columna 0)
         const celdaHora = document.createElement('div');
         celdaHora.className='time-header';
         celdaHora.textContent = hora;
         cont.appendChild(celdaHora);
 
-        // celdas de cada día
         DIAS.forEach((_,idxDia)=>{
             const celda = document.createElement('div');
             const fechaDia = new Date(inicioSemana);
             fechaDia.setDate(inicioSemana.getDate()+idxDia);
-            const fechaHora = `${fechaDia.getFullYear()}-${pad(fechaDia.getMonth()+1)}-${pad(fechaDia.getDate())}T${hora}:00`;
-            
-            // Buscar si esta celda corresponde a una reserva existente
+            const fechaStr = `${fechaDia.getFullYear()}-${pad(fechaDia.getMonth()+1)}-${pad(fechaDia.getDate())}`;
+            const fechaHora = `${fechaStr}T${hora}:00`;
+
             const reservaExistente = reservas.find(r=> {
                 const reservaInicio = new Date(`${r.fecha}T${r.horaInicio}:00`);
                 const reservaFin = new Date(`${r.fecha}T${r.horaFin}:00`);
@@ -187,35 +181,26 @@ function renderCalendario(fechaISO){
                 celda.className='slot taken';
                 celda.title=`${reservaExistente.nombre}\n${reservaExistente.fecha} ${reservaExistente.horaInicio}-${reservaExistente.horaFin}`;
                 celda.dataset.reservaId = reservaExistente.id;
-                celda.dataset.reservaNombre = reservaExistente.nombre;
-                celda.dataset.reservaFecha = reservaExistente.fecha;
-                celda.dataset.reservaHoraInicio = reservaExistente.horaInicio;
-                celda.dataset.reservaHoraFin = reservaExistente.horaFin;
-                // Mostrar detalles mínimos en la celda
                 celda.innerHTML = `<div class="slot-taken-details">${reservaExistente.nombre}<br>${reservaExistente.horaInicio}-${reservaExistente.horaFin}</div>`;
             }else{
                 celda.className='slot avail';
                 celda.title='Haga clic para seleccionar';
-                celda.onclick = ()=>seleccionarSlot(celda, fechaHora, hora);
+                celda.onclick = ()=>seleccionarSlot(celda, fechaStr, hora);
             }
             cont.appendChild(celda);
         });
     });
 }
 
-/* ---------- SELECCIÓN DE SLOT (PARA NUEVAS RESERVAS) ---------- */
-function seleccionarSlot(elemento, fechaISO, hora){
-    if(seleccionada){
-        const prev = document.querySelector(`[data-key="${seleccionada.key}"]`);
-        if(prev) prev.classList.remove('selected');
-    }
+/* ---------- SELECCIÓN DE SLOT ---------- */
+function seleccionarSlot(elemento, fechaStr, hora){
+    document.querySelectorAll('.slot.selected').forEach(el=>el.classList.remove('selected'));
     const finISO = sumarMinutos(hora, INTERVALO);
     seleccionada = {
-        fecha: fechaISO.split('T')[0],
+        fecha: fechaStr,
         horaInicio: hora,
         horaFin: finISO,
-        nombre: document.getElementById('nombreReserva').value.trim() || 'Sin nombre',
-        key:`${fechaISO}|${hora}`
+        nombre: document.getElementById('nombreReserva').value.trim() || 'Sin nombre'
     };
     elemento.classList.add('selected');
     document.getElementById('info').textContent =
@@ -228,76 +213,47 @@ function sumarMinutos(hhmm, minutos){
     const [h,m]=hhmm.split(':').map(Number);
     let total = h*60 + m + minutos;
     total = ((total% (24*60)) + (24*60))%(24*60);
-    const nh = Math.floor(total/60);
-    const nm = total%60;
-    return `${pad(nh)}:${pad(nm)}`;
+    return `${pad(Math.floor(total/60))}:${pad(total%60)}`;
 }
 
 /* ---------- GUARDAR NUEVA RESERVA ---------- */
 function guardarReserva(){
     if(!seleccionada) return;
-    
-    // Evitar duplicados
-    const yaExiste = reservas.some(r=> 
-        r.fecha === seleccionada.fecha && 
-        r.horaInicio === seleccionada.horaInicio && 
-        r.horaFin === seleccionada.horaFin
-    );
-    
-    if(yaExiste){
-        alert('Este horario ya está reservado');
-        return;
-    }
 
-    // Enviar nueva reserva al Web App
+    const yaExiste = reservas.some(r=>
+        r.fecha === seleccionada.fecha &&
+        r.horaInicio === seleccionada.horaInicio
+    );
+
+    if(yaExiste){ alert('Este horario ya está reservado'); return; }
+
     fetch(WEB_APP_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            nombre: seleccionada.nombre,
-            fecha: seleccionada.fecha,
-            horaInicio: seleccionada.horaInicio,
-            horaFin: seleccionada.horaFin
-        })
+        body: JSON.stringify(seleccionada)
     })
-    .then(response => response.json())
+    .then(r=>r.json())
     .then(result => {
         if (result.success) {
-            alert('Reserva guardada exitosamente. Ahora todos los visitantes podrán verla.');
-            
-            // Actualizar vista: recargar reservas y limpiar formulario
+            alert('Reserva guardada exitosamente.');
             cargarReservas();
             document.getElementById('btnReservar').disabled = true;
             document.getElementById('nombreReserva').value = '';
-            document.getElementById('info').textContent = 'Reserva guardada. Seleccione otro horario o ingrese un nuevo nombre.';
-        } else {
-            throw new Error(result.error || 'Error desconocido');
-        }
+            seleccionada = null;
+        } else { throw new Error(result.error); }
     })
-    .catch(error => {
-        alert('Error al guardar la reserva: ' + error.message);
-        console.error(error);
-    });
+    .catch(e=>{ alert('Error al guardar: ' + e.message); });
 }
 
-/* ---------- EDITAR RESERVA EXISTENTE ---------- */
+/* ---------- EDITAR RESERVA ---------- */
 function abrirModalEditar(reservaId){
-    // Encontrar la reserva por ID
-    const reserva = reservas.find(r=> r.id === reservaId);
-    if(!reserva){
-        alert('Reserva no encontrada');
-        return;
-    }
-    
+    const reserva = reservas.find(r=> r.id == reservaId);
+    if(!reserva){ alert('Reserva no encontrada'); return; }
     reservaEnEdicion = reserva;
-    
-    // Llenar el formulario
     document.getElementById('editNombre').value = reserva.nombre;
     document.getElementById('editFecha').value = reserva.fecha;
     document.getElementById('editHoraInicio').value = reserva.horaInicio;
     document.getElementById('editHoraFin').value = reserva.horaFin;
-    
-    // Mostrar modal
     document.getElementById('editModal').style.display = 'block';
 }
 
@@ -309,131 +265,70 @@ function cerrarModalEditar(){
 
 function guardarCambiosEdicion(){
     if(!reservaEnEdicion) return;
-    
     const nombre = document.getElementById('editNombre').value.trim();
     const fecha = document.getElementById('editFecha').value;
     const horaInicio = document.getElementById('editHoraInicio').value;
     const horaFin = document.getElementById('editHoraFin').value;
-    
-    if(!nombre || !fecha || !horaInicio || !horaFin){
-        alert('Por favor complete todos los campos');
-        return;
-    }
-    
-    // Validar que el nuevo horario no conflit con otras reservas (excluyendo la siendo editada)
-    if(esSlotOcupado(fecha, horaInicio, reservaEnEdicion.id) || 
-       esSlotOcupado(fecha, sumarMinutos(horaFin, -1), reservaEnEdicion.id)){ // Check end-1min to avoid false conflict
-        alert('El horario seleccionado ya está reservado por otra reunión');
-        return;
-    }
-    
-    // Enviar actualización al Web App
+    if(!nombre||!fecha||!horaInicio||!horaFin){ alert('Complete todos los campos'); return; }
+
     fetch(WEB_APP_URL, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            id: reservaEnEdicion.id,
-            nombre: nombre,
-            fecha: fecha,
-            horaInicio: horaInicio,
-            horaFin: horaFin
-        })
+        body: JSON.stringify({ id: reservaEnEdicion.id, nombre, fecha, horaInicio, horaFin })
     })
-    .then(response => response.json())
+    .then(r=>r.json())
     .then(result => {
         if (result.success) {
-            alert('Reserva actualizada exitosamente.');
+            alert('Reserva actualizada.');
             cerrarModalEditar();
-            // Actualizar vista completa
             cargarReservas();
-        } else {
-            throw new Error(result.error || 'Error desconocido');
-        }
+        } else { throw new Error(result.error); }
     })
-    .catch(error => {
-        alert('Error al actualizar la reserva: ' + error.message);
-        console.error(error);
-    });
+    .catch(e=>{ alert('Error al actualizar: ' + e.message); });
 }
 
-/* ---------- ELIMINAR RESERVA (OPCIONAL PERO ÚTIL) ---------- */
-function eliminarReserva(reservaId){
-    if(!confirm('¿Está seguro de que desea eliminar esta reserva? Esta acción no se puede deshacer.')) return;
-    
-    fetch(`${WEB_APP_URL}?id=${reservaId}`, {
-        method: 'DELETE'
-    })
-    .then(response => response.json())
-    .then(result => {
-        if (result.success) {
-            alert('Reserva eliminada exitosamente.');
-            cargarReservas(); // Actualizar vista
-        } else {
-            throw new Error(result.error || 'Error desconocido');
-        }
-    })
-    .catch(error => {
-        alert('Error al eliminar la reserva: ' + error.message);
-        console.error(error);
-    });
-}
-
-/* ---------- CARGAR RESERVAS EXISTENTES ---------- */
+/* ---------- CARGAR RESERVAS ---------- */
 function cargarReservas(){
-    document.getElementById('info').textContent = 'Cargando reservas existentes...';
-    
+    document.getElementById('info').textContent = 'Cargando reservas...';
     fetch(WEB_APP_URL)
-        .then(response => {
-            if (!response.ok) throw new Error(`Error ${response.status}: No se pudo conectar al servidor`);
-            return response.json();
-        })
+        .then(r=>{ if(!r.ok) throw new Error(`Error ${r.status}`); return r.json(); })
         .then(data => {
-            reservas = data; // Esperamos un array de reservas con {id, nombre, fecha, horaInicio, horaFin}
-            renderCalendario(document.getElementById('semanaInput').value);
-            document.getElementById('info').textContent = `Se encontraron ${reservas.length} reservas existentes. Seleccione un horario disponible para reservar o haga clic en una reserva existente para editarla.`;
+            reservas = data;
+            const fecha = document.getElementById('semanaInput').value;
+            if(fecha) renderCalendario(fecha);
+            document.getElementById('info').textContent =
+                `${reservas.length} reservas encontradas. Seleccione un horario para reservar o haga clic en uno ocupado para editarlo.`;
         })
-        .catch(error => {
-            console.error('Error al cargar reservas:', error);
-            document.getElementById('info').textContent = 'Error al cargar reservas. Por favor intente recargar la página.';
+        .catch(e=>{
+            document.getElementById('info').textContent = 'Error al cargar reservas: ' + e.message;
         });
 }
 
 /* ---------- EVENTOS ---------- */
-document.getElementById('btnVerCal').addEventListener('click',async ()=>{
+document.getElementById('btnVerCal').addEventListener('click', ()=>{
     const fecha = document.getElementById('semanaInput').value;
-    if(!fecha){alert('Seleccione una fecha');return;}
-    document.getElementById('semanaInput').disabled = true;
-    cargarReservas(); // Esto cargará reservas existentes y renderizará el calendario
+    if(!fecha){ alert('Seleccione una fecha'); return; }
+    cargarReservas();
 });
 
 document.getElementById('btnReservar').addEventListener('click', guardarReserva);
-
-// Modal event listeners
 document.getElementsByClassName('close')[0].addEventListener('click', cerrarModalEditar);
 document.getElementById('cancelEdit').addEventListener('click', cerrarModalEditar);
-window.addEventListener('click', function(event) {
-    if (event.target === document.getElementById('editModal')) {
-        cerrarModalEditar();
-    }
-});
-document.getElementById('editForm').addEventListener('submit', function(e){
-    e.preventDefault();
-    guardarCambiosEdicion();
-});
+window.addEventListener('click', e=>{ if(e.target===document.getElementById('editModal')) cerrarModalEditar(); });
+document.getElementById('editForm').addEventListener('submit', e=>{ e.preventDefault(); guardarCambiosEdicion(); });
 
-// Make calendar slots clickable for editing existing reservations
-document.addEventListener('click', function(e){
-    if(e.target.classList.contains('slot') && e.target.classList.contains('taken')){
-        const reservaId = parseInt(e.target.dataset.reservaId);
-        if(!isNaN(reservaId)){
-            abrirModalEditar(reservaId);
-        }
+document.addEventListener('click', e=>{
+    const slot = e.target.closest('.slot.taken');
+    if(slot){
+        const id = slot.dataset.reservaId;
+        if(id) abrirModalEditar(id);
     }
 });
 
 /* ---------- INICIALIZAR ---------- */
-document.getElementById('semanaInput').min = new Date().toISOString().split('T')[0];
-document.getElementById('semanaInput').value = new Date().toISOString().split('T')[0];
+const hoy = new Date().toISOString().split('T')[0];
+document.getElementById('semanaInput').min = hoy;
+document.getElementById('semanaInput').value = hoy;
 </script>
 </body>
 </html>
