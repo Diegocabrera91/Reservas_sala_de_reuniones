@@ -12,13 +12,16 @@
     .controls{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-bottom:12px;}
     .ctrl-group{display:flex;flex-direction:column;flex:1;min-width:160px;}
     .ctrl-group label{font-weight:bold;margin-bottom:4px;font-size:.88em;color:#555;}
-    input[type=date],input[type=text]{padding:8px 10px;border:1px solid #ccc;border-radius:6px;width:100%;font-size:.93em;}
+    input[type=date],input[type=text],input[type=email]{
+        padding:8px 10px;border:1px solid #ccc;border-radius:6px;width:100%;font-size:.93em;}
     .btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;}
-    button{padding:9px 16px;border:none;border-radius:6px;cursor:pointer;font-size:.88em;font-weight:bold;transition:opacity .2s;}
+    button{padding:9px 16px;border:none;border-radius:6px;cursor:pointer;
+           font-size:.88em;font-weight:bold;transition:opacity .2s;}
     button:hover{opacity:.85;}
     button.verde{background:#27ae60;color:#fff;}
     button.gris{background:#95a5a6;color:#fff;}
     button.rojo{background:#e74c3c;color:#fff;}
+    button.azul{background:#2980b9;color:#fff;}
     button:disabled{opacity:.5;cursor:not-allowed;}
     #calendar{display:grid;grid-template-columns:64px repeat(5,1fr);gap:3px;margin-top:8px;}
     .time-header{background:#dfe6e9;font-size:.78em;font-weight:bold;text-align:center;
@@ -44,6 +47,7 @@
                  padding:8px 14px;margin:8px 0;border-radius:6px;font-size:.88em;color:#2c3e50;}
     #info{margin-top:12px;padding:10px 14px;background:#f8f9fa;border-left:4px solid #27ae60;
           border-radius:6px;font-size:.9em;min-height:36px;color:#2d3436;}
+    /* MODALES */
     .modal{display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;
            overflow:auto;background:rgba(0,0,0,.5);}
     .modal-content{background:#fff;margin:6% auto;padding:26px;border-radius:10px;width:93%;max-width:440px;}
@@ -57,6 +61,10 @@
     .form-row .form-group{flex:1;}
     .modal-btns{display:flex;gap:8px;margin-top:16px;}
     .modal-btns button{flex:1;padding:10px;}
+    .resumen-box{background:#eafaf1;border-left:3px solid #27ae60;
+                 padding:8px 12px;border-radius:5px;font-size:.85em;margin-bottom:10px;display:none;}
+    .codigo-box{background:#fef9e7;border-left:3px solid #f39c12;
+                padding:10px 14px;border-radius:6px;font-size:.88em;margin-bottom:12px;}
     .spinner{display:inline-block;width:13px;height:13px;border:2px solid #fff;
              border-top-color:transparent;border-radius:50%;
              animation:spin .7s linear infinite;vertical-align:middle;margin-right:5px;}
@@ -75,6 +83,10 @@
             <label for="nombreReserva">Nombre / Asunto:</label>
             <input type="text" id="nombreReserva" placeholder="Ej. Reunión de proyecto">
         </div>
+        <div class="ctrl-group">
+            <label for="correoReserva">Correo electrónico:</label>
+            <input type="email" id="correoReserva" placeholder="tu@correo.com">
+        </div>
         <div style="display:flex;gap:6px;align-items:flex-end;padding-bottom:1px;">
             <button class="verde" id="btnVerCal">🔄 Cambiar semana</button>
         </div>
@@ -84,17 +96,39 @@
         <button class="gris" id="btnCancelarSel" style="display:none">❌ Cancelar</button>
     </div>
     <div id="instruccion">
-        👉 <strong>Paso 1:</strong> Escriba el nombre y haga clic en el horario de <strong>inicio</strong> (🟠).
-        Luego <strong>Paso 2:</strong> clic en el horario de <strong>fin</strong> (🟢).
+        👉 <strong>Paso 1:</strong> Complete nombre y correo, luego haga clic en el horario de <strong>inicio</strong> (🟠).
+        <strong>Paso 2:</strong> clic en el horario de <strong>fin</strong> (🟢).
     </div>
     <div id="calendar"></div>
     <div id="info">Cargando calendario...</div>
 </div>
 
-<!-- Modal Editar -->
+<!-- Modal: ver reserva + pedir código -->
+<div id="verModal" class="modal">
+    <div class="modal-content">
+        <span class="close" id="closeVerModal">&times;</span>
+        <h2 class="modal-title">📅 Detalle de Reserva</h2>
+        <div id="verDetalle" class="resumen-box" style="display:block;"></div>
+        <div class="codigo-box">
+            🔑 Ingrese el <strong>código de 6 caracteres</strong> que recibió en su correo para editar o eliminar:
+            <input type="text" id="codigoInput" placeholder="Ej: A7X29K"
+                   style="margin-top:8px;text-transform:uppercase;letter-spacing:3px;
+                          font-size:1.1em;font-weight:bold;text-align:center;">
+            <div id="codigoError" style="color:#e74c3c;font-size:.82em;margin-top:4px;display:none;">
+                ❌ Código incorrecto. Inténtelo de nuevo.
+            </div>
+        </div>
+        <div class="modal-btns">
+            <button class="azul" id="btnAcceder">🔓 Acceder</button>
+            <button class="gris" id="cancelVer">Cancelar</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: editar reserva -->
 <div id="editModal" class="modal">
     <div class="modal-content">
-        <span class="close" id="closeModal">&times;</span>
+        <span class="close" id="closeEditModal">&times;</span>
         <h2 class="modal-title">✏️ Editar Reserva</h2>
         <form id="editForm">
             <div class="form-group">
@@ -115,10 +149,9 @@
                     <input type="time" id="editHoraFin" required>
                 </div>
             </div>
-            <div id="editResumen" style="background:#eafaf1;border-left:3px solid #27ae60;
-                 padding:6px 10px;border-radius:5px;font-size:.85em;margin-bottom:8px;display:none;"></div>
+            <div id="editResumen" class="resumen-box"></div>
             <div class="modal-btns">
-                <button type="submit" class="verde" id="btnGuardarEdicion">💾 Guardar cambios</button>
+                <button type="submit" class="verde" id="btnGuardarEdicion">💾 Guardar</button>
                 <button type="button" class="rojo" id="btnEliminar">🗑️ Eliminar</button>
                 <button type="button" class="gris" id="cancelEdit">Cancelar</button>
             </div>
@@ -127,11 +160,11 @@
 </div>
 
 <script>
-const WEB_APP_URL='https://script.google.com/macros/s/AKfycbzjx9tOD_s68F1jO2sYXHeOIzxDOYLqla2o_PVWskC7IdzyET7dJoym_NoDUhxoLry80g/exec';
+const WEB_APP_URL='https://script.google.com/macros/s/AKfycbxrMNZZWa95equPnfsQelRbfMD3-yxT6_zMojYodLEOSsEpim8KrTg3qvV6tRQoNRc3ag/exec';
 const DIAS=['Lun','Mar','Mié','Jue','Vie'];
 const HORA_INI=8, HORA_FIN=17, INTERVALO=30;
 
-let reservas=[], reservaEnEdicion=null;
+let reservas=[], reservaEnEdicion=null, codigoVerificado=null;
 let slotInicio=null, slotFin=null;
 
 function pad(n){return n<10?'0'+n:n;}
@@ -187,10 +220,11 @@ async function cargarReservas(){
             nombre    : String(r.nombre||'').trim(),
             fecha     : normFecha(r.fecha),
             horaInicio: normHora(r.horaInicio),
-            horaFin   : normHora(r.horaFin)
+            horaFin   : normHora(r.horaFin),
+            correo    : String(r.correo||'').trim()
         })).filter(r=>r.nombre&&r.fecha&&r.horaInicio&&r.horaFin);
         renderCalendario(document.getElementById('semanaInput').value);
-        setInfo(`${reservas.length} reserva(s). Ingrese nombre, clic en inicio → fin y confirme.`);
+        setInfo(`${reservas.length} reserva(s). Complete nombre y correo, luego seleccione inicio → fin.`);
     }catch(e){setInfo('❌ Error al cargar: '+e.message);}
 }
 
@@ -240,7 +274,7 @@ function renderCalendario(fechaISO){
                 celda.innerHTML=esInicio
                     ?`<span class="t-nombre">${rx.nombre}</span><span class="t-hora">${rx.horaInicio}–${rx.horaFin}</span>`
                     :`<span class="t-nombre">${rx.nombre}</span>`;
-                celda.addEventListener('click',()=>abrirModal(rx.id));
+                celda.addEventListener('click',()=>abrirVerModal(rx.id));
             }else{
                 celda.className='slot avail';
                 celda.addEventListener('click',()=>clicSlotLibre(celda,fs,hora));
@@ -250,6 +284,7 @@ function renderCalendario(fechaISO){
     });
 }
 
+/* ---- Selección ---- */
 function clicSlotLibre(elem,fecha,hora){
     if(!slotInicio){
         slotInicio={fecha,hora};
@@ -300,24 +335,28 @@ function cancelarSeleccion(){
     slotInicio=null; slotFin=null;
     document.getElementById('btnReservar').disabled=true;
     document.getElementById('btnCancelarSel').style.display='none';
-    document.getElementById('instruccion').innerHTML='👉 <strong>Paso 1:</strong> Escriba el nombre y haga clic en <strong>inicio</strong>. Luego <strong>Paso 2:</strong> clic en <strong>fin</strong>.';
+    document.getElementById('instruccion').innerHTML='👉 <strong>Paso 1:</strong> Complete nombre y correo, luego clic en <strong>inicio</strong>. Luego <strong>Paso 2:</strong> clic en <strong>fin</strong>.';
     setInfo('Selección cancelada.');
 }
 
 async function guardarReserva(){
     if(!slotInicio||!slotFin) return;
-    const nombre=document.getElementById('nombreReserva').value.trim()||'Sin nombre';
+    const nombre=document.getElementById('nombreReserva').value.trim();
+    const correo=document.getElementById('correoReserva').value.trim();
+    if(!nombre){alert('Ingrese un nombre o asunto.');return;}
+    if(!correo||!correo.includes('@')){alert('Ingrese un correo electrónico válido.');return;}
     const horaFinReal=sumarMinutos(slotFin.hora,INTERVALO);
     const btn=document.getElementById('btnReservar');
     btn.innerHTML='<span class="spinner"></span>Guardando…'; btn.disabled=true;
     try{
-        const res=await apiCall({action:'crear',nombre,fecha:slotInicio.fecha,horaInicio:slotInicio.hora,horaFin:horaFinReal});
+        const res=await apiCall({action:'crear',nombre,correo,fecha:slotInicio.fecha,horaInicio:slotInicio.hora,horaFin:horaFinReal});
         if(!res.success) throw new Error(res.error);
-        alert('✅ Reserva guardada.');
+        alert(`✅ Reserva guardada.\n\n📧 Se envió un código a ${correo}.\nGuárdalo para editar o eliminar tu reserva.`);
         slotInicio=null; slotFin=null;
         document.getElementById('nombreReserva').value='';
+        document.getElementById('correoReserva').value='';
         document.getElementById('btnCancelarSel').style.display='none';
-        document.getElementById('instruccion').innerHTML='👉 <strong>Paso 1:</strong> Escriba el nombre y haga clic en <strong>inicio</strong>. Luego <strong>Paso 2:</strong> clic en <strong>fin</strong>.';
+        document.getElementById('instruccion').innerHTML='👉 <strong>Paso 1:</strong> Complete nombre y correo, luego clic en <strong>inicio</strong>. Luego <strong>Paso 2:</strong> clic en <strong>fin</strong>.';
         await cargarReservas();
     }catch(e){
         alert('❌ Error al guardar: '+e.message);
@@ -325,20 +364,58 @@ async function guardarReserva(){
     }finally{btn.innerHTML='✅ Reservar selección';}
 }
 
+/* ---- Modal Ver + Verificar código ---- */
+function abrirVerModal(id){
+    const r=reservas.find(x=>x.id==id); if(!r) return;
+    reservaEnEdicion=r;
+    codigoVerificado=null;
+    document.getElementById('verDetalle').innerHTML=
+        `<strong>📄 ${r.nombre}</strong><br>📅 ${r.fecha} &nbsp; ⏰ ${r.horaInicio}–${r.horaFin}`;
+    document.getElementById('codigoInput').value='';
+    document.getElementById('codigoError').style.display='none';
+    document.getElementById('verModal').style.display='block';
+}
+function cerrarVerModal(){
+    document.getElementById('verModal').style.display='none';
+    reservaEnEdicion=null; codigoVerificado=null;
+}
+
+async function verificarCodigo(){
+    const codigo=document.getElementById('codigoInput').value.trim().toUpperCase();
+    if(!codigo){alert('Ingrese el código.');return;}
+    const btn=document.getElementById('btnAcceder');
+    btn.innerHTML='<span class="spinner"></span>Verificando…'; btn.disabled=true;
+    try{
+        const res=await apiCall({action:'verificar',id:reservaEnEdicion.id,codigo});
+        if(!res.success){
+            document.getElementById('codigoError').style.display='block';
+            return;
+        }
+        codigoVerificado=codigo;
+        cerrarVerModal();
+        abrirEditModal();
+    }catch(e){alert('❌ Error: '+e.message);}
+    finally{btn.innerHTML='🔓 Acceder';btn.disabled=false;}
+}
+
+/* ---- Modal Editar ---- */
 function actualizarResumen(){
     const ni=document.getElementById('editHoraInicio').value;
     const nf=document.getElementById('editHoraFin').value;
     const nd=document.getElementById('editFecha').value;
     const nm=document.getElementById('editNombre').value;
     const r=document.getElementById('editResumen');
-    if(ni&&nf&&nd){r.style.display='block';r.innerHTML=`📌 <strong>${nm||'Sin nombre'}</strong> — ${nd} ${ni}–${nf}`;}
+    if(ni&&nf&&nd){
+        r.style.display='block';
+        r.innerHTML=`📌 <strong>${nm||'Sin nombre'}</strong> — ${nd} ${ni}–${nf}`;
+    }
 }
 ['editHoraInicio','editHoraFin','editFecha','editNombre'].forEach(id=>
     document.getElementById(id).addEventListener('input',actualizarResumen));
 
-function abrirModal(id){
-    const r=reservas.find(x=>x.id==id); if(!r) return;
-    reservaEnEdicion=r;
+function abrirEditModal(){
+    if(!reservaEnEdicion) return;
+    const r=reservaEnEdicion;
     document.getElementById('editNombre').value=r.nombre;
     document.getElementById('editFecha').value=r.fecha;
     document.getElementById('editHoraInicio').value=r.horaInicio;
@@ -346,13 +423,14 @@ function abrirModal(id){
     actualizarResumen();
     document.getElementById('editModal').style.display='block';
 }
-function cerrarModal(){
+function cerrarEditModal(){
     document.getElementById('editModal').style.display='none';
     document.getElementById('editResumen').style.display='none';
-    reservaEnEdicion=null; document.getElementById('editForm').reset();
+    reservaEnEdicion=null; codigoVerificado=null;
+    document.getElementById('editForm').reset();
 }
 async function guardarEdicion(){
-    if(!reservaEnEdicion) return;
+    if(!reservaEnEdicion||!codigoVerificado) return;
     const nombre=document.getElementById('editNombre').value.trim();
     const fecha=document.getElementById('editFecha').value;
     const horaInicio=document.getElementById('editHoraInicio').value;
@@ -362,25 +440,26 @@ async function guardarEdicion(){
     const btn=document.getElementById('btnGuardarEdicion');
     btn.innerHTML='<span class="spinner"></span>Guardando…'; btn.disabled=true;
     try{
-        const res=await apiCall({action:'editar',id:reservaEnEdicion.id,nombre,fecha,horaInicio,horaFin});
+        const res=await apiCall({action:'editar',id:reservaEnEdicion.id,codigo:codigoVerificado,nombre,fecha,horaInicio,horaFin});
         if(!res.success) throw new Error(res.error);
-        alert('✅ Reserva actualizada.'); cerrarModal(); await cargarReservas();
+        alert('✅ Reserva actualizada.'); cerrarEditModal(); await cargarReservas();
     }catch(e){alert('❌ Error: '+e.message);}
-    finally{btn.innerHTML='💾 Guardar cambios';btn.disabled=false;}
+    finally{btn.innerHTML='💾 Guardar';btn.disabled=false;}
 }
 async function eliminarReserva(){
-    if(!reservaEnEdicion) return;
+    if(!reservaEnEdicion||!codigoVerificado) return;
     if(!confirm(`¿Eliminar "${reservaEnEdicion.nombre}"?`)) return;
     const btn=document.getElementById('btnEliminar');
     btn.innerHTML='<span class="spinner"></span>Eliminando…'; btn.disabled=true;
     try{
-        const res=await apiCall({action:'eliminar',id:reservaEnEdicion.id});
+        const res=await apiCall({action:'eliminar',id:reservaEnEdicion.id,codigo:codigoVerificado});
         if(!res.success) throw new Error(res.error);
-        alert('✅ Eliminada.'); cerrarModal(); await cargarReservas();
+        alert('✅ Reserva eliminada.'); cerrarEditModal(); await cargarReservas();
     }catch(e){alert('❌ Error: '+e.message);}
     finally{btn.innerHTML='🗑️ Eliminar';btn.disabled=false;}
 }
 
+/* ---- Eventos ---- */
 document.getElementById('btnVerCal').addEventListener('click',()=>{
     const fecha=document.getElementById('semanaInput').value;
     if(!fecha){alert('Seleccione una fecha');return;}
@@ -388,12 +467,23 @@ document.getElementById('btnVerCal').addEventListener('click',()=>{
 });
 document.getElementById('btnReservar').addEventListener('click',guardarReserva);
 document.getElementById('btnCancelarSel').addEventListener('click',cancelarSeleccion);
+document.getElementById('btnAcceder').addEventListener('click',verificarCodigo);
+document.getElementById('closeVerModal').addEventListener('click',cerrarVerModal);
+document.getElementById('cancelVer').addEventListener('click',cerrarVerModal);
 document.getElementById('editForm').addEventListener('submit',e=>{e.preventDefault();guardarEdicion();});
 document.getElementById('btnEliminar').addEventListener('click',eliminarReserva);
-document.getElementById('closeModal').addEventListener('click',cerrarModal);
-document.getElementById('cancelEdit').addEventListener('click',cerrarModal);
-window.addEventListener('click',e=>{if(e.target===document.getElementById('editModal'))cerrarModal();});
+document.getElementById('closeEditModal').addEventListener('click',cerrarEditModal);
+document.getElementById('cancelEdit').addEventListener('click',cerrarEditModal);
+window.addEventListener('click',e=>{
+    if(e.target===document.getElementById('verModal')) cerrarVerModal();
+    if(e.target===document.getElementById('editModal')) cerrarEditModal();
+});
+// Enter en campo código
+document.getElementById('codigoInput').addEventListener('keydown',e=>{
+    if(e.key==='Enter'){e.preventDefault();verificarCodigo();}
+});
 
+/* ---- Init ---- */
 const hoy=new Date().toISOString().split('T')[0];
 document.getElementById('semanaInput').min=hoy;
 document.getElementById('semanaInput').value=hoy;
