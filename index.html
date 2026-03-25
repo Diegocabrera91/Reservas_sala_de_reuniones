@@ -159,7 +159,7 @@
 </div>
 
 <script>
-const WEB_APP_URL='https://script.google.com/macros/s/AKfycbxrMNZZWa95equPnfsQelRbfMD3-yxT6_zMojYodLEOSsEpim8KrTg3qvV6tRQoNRc3ag/exec';
+const WEB_APP_URL='https://script.google.com/macros/s/AKfycbwAuzusTrymArIhyvEFkIJqexfkxK0TliUOFB62WsUSvAZV7qKmQRb5A40pvuFNzjjopA/exec';
 const DIAS=['Lun','Mar','Mié','Jue','Vie'];
 const HORA_INI=8, HORA_FIN=17, INTERVALO=30;
 
@@ -204,7 +204,6 @@ function normHora(v){
     return s.substring(0,5);
 }
 
-// *** FIX: fetch con redirect:follow y text() primero para evitar fallo silencioso ***
 async function apiCall(params){
     const url=WEB_APP_URL+'?'+new URLSearchParams(params);
     const r=await fetch(url,{redirect:'follow'});
