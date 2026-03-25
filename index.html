@@ -98,7 +98,7 @@
 
 <script>
 /* ===== CONFIG ===== */
-const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyPNl7hBojwBfZhDPDw4CXYGU5V3zPYQ6uZExUU36aqzT-Dc0kkdV8WhZa7oblYiGUM3w/exec';
+const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwzW6psDOXwpdggukiyWKtuAmKWJRECEnvxfBvLeyxHln36bSgk5xh82wS2pKNemfgrrw/exec';
 const DIAS       = ['Lun','Mar','Mié','Jue','Vie'];
 const HORA_INI   = 8;
 const HORA_FIN   = 17;
@@ -109,7 +109,6 @@ let reservas         = [];
 let reservaEnEdicion = null;
 let seleccionada     = null;
 
-/* ---- utilidades ---- */
 function pad(n){ return n < 10 ? '0'+n : n; }
 
 function generarHoras(){
@@ -128,7 +127,6 @@ function sumarMinutos(hhmm, mins){
     return `${pad(Math.floor(t/60))}:${pad(t%60)}`;
 }
 
-/* ---- llamadas al backend (solo POST y GET, Apps Script no soporta PUT/DELETE) ---- */
 async function apiFetch(payload){
     const r = await fetch(WEB_APP_URL, {
         method : 'POST',
@@ -139,11 +137,9 @@ async function apiFetch(payload){
     return r.json();
 }
 
-/* ---- cargar reservas ---- */
 async function cargarReservas(){
     setInfo('⏳ Cargando reservas...');
     try {
-        // GET simple para leer datos
         const r = await fetch(WEB_APP_URL);
         if(!r.ok) throw new Error(`HTTP ${r.status}`);
         reservas = await r.json();
@@ -155,37 +151,32 @@ async function cargarReservas(){
     }
 }
 
-/* ---- render calendario ---- */
 function renderCalendario(fechaISO){
     const cont = document.getElementById('calendar');
     cont.innerHTML = '';
 
-    // cabecera col 0
     const h0 = document.createElement('div');
     h0.className = 'time-header';
     h0.textContent = 'Hora / Día';
     cont.appendChild(h0);
 
-    // calcular lunes de la semana
-    const base = new Date(fechaISO + 'T12:00:00');
-    const dow  = base.getDay(); // 0=dom
+    const base  = new Date(fechaISO + 'T12:00:00');
+    const dow   = base.getDay();
     const lunes = new Date(base);
     lunes.setDate(base.getDate() - ((dow + 6) % 7));
 
-    // cabeceras de días
     DIAS.forEach((dia, i) => {
-        const d = new Date(lunes);
+        const d  = new Date(lunes);
         d.setDate(lunes.getDate() + i);
         const th = document.createElement('div');
-        th.className = 'day-header';
+        th.className   = 'day-header';
         th.textContent = `${dia} ${d.getDate()}/${d.getMonth()+1}`;
         cont.appendChild(th);
     });
 
-    // filas de horas
     HORAS.forEach(hora => {
         const ch = document.createElement('div');
-        ch.className = 'time-header';
+        ch.className   = 'time-header';
         ch.textContent = hora;
         cont.appendChild(ch);
 
@@ -194,23 +185,23 @@ function renderCalendario(fechaISO){
             d.setDate(lunes.getDate() + i);
             const fechaStr = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 
-            const reservaExistente = reservas.find(r => {
-                const ini = new Date(`${r.fecha}T${r.horaInicio}:00`);
-                const fin = new Date(`${r.fecha}T${r.horaFin}:00`);
+            const rx = reservas.find(r => {
+                const ini  = new Date(`${r.fecha}T${r.horaInicio}:00`);
+                const fin  = new Date(`${r.fecha}T${r.horaFin}:00`);
                 const slot = new Date(`${fechaStr}T${hora}:00`);
                 return slot >= ini && slot < fin;
             });
 
             const celda = document.createElement('div');
-            if(reservaExistente){
+            if(rx){
                 celda.className = 'slot taken';
-                celda.title = `Clic para editar: ${reservaExistente.nombre}`;
-                celda.innerHTML = `<span style="font-size:.75em;text-align:center">${reservaExistente.nombre}<br>${reservaExistente.horaInicio}-${reservaExistente.horaFin}</span>`;
-                celda.dataset.reservaId = reservaExistente.id;
-                celda.addEventListener('click', () => abrirModal(reservaExistente.id));
+                celda.title     = `Clic para editar: ${rx.nombre}`;
+                celda.innerHTML = `<span style="font-size:.75em;text-align:center">${rx.nombre}<br>${rx.horaInicio}-${rx.horaFin}</span>`;
+                celda.dataset.reservaId = rx.id;
+                celda.addEventListener('click', () => abrirModal(rx.id));
             } else {
                 celda.className = 'slot avail';
-                celda.title = 'Clic para seleccionar';
+                celda.title     = 'Clic para seleccionar';
                 celda.addEventListener('click', () => seleccionarSlot(celda, fechaStr, hora));
             }
             cont.appendChild(celda);
@@ -218,7 +209,6 @@ function renderCalendario(fechaISO){
     });
 }
 
-/* ---- seleccionar slot libre ---- */
 function seleccionarSlot(elem, fechaStr, hora){
     document.querySelectorAll('.slot.selected').forEach(el => el.classList.remove('selected'));
     seleccionada = {
@@ -232,12 +222,11 @@ function seleccionarSlot(elem, fechaStr, hora){
     document.getElementById('btnReservar').disabled = false;
 }
 
-/* ---- guardar nueva reserva ---- */
 async function guardarReserva(){
     if(!seleccionada) return;
     const btn = document.getElementById('btnReservar');
     btn.innerHTML = '<span class="spinner"></span>Guardando…';
-    btn.disabled = true;
+    btn.disabled  = true;
     try {
         const res = await apiFetch({ action:'crear', ...seleccionada });
         if(!res.success) throw new Error(res.error);
@@ -253,7 +242,6 @@ async function guardarReserva(){
     }
 }
 
-/* ---- modal editar ---- */
 function abrirModal(reservaId){
     const r = reservas.find(x => x.id == reservaId);
     if(!r){ alert('Reserva no encontrada'); return; }
@@ -281,7 +269,7 @@ async function guardarEdicion(){
 
     const btn = document.getElementById('btnGuardarEdicion');
     btn.innerHTML = '<span class="spinner"></span>Guardando…';
-    btn.disabled = true;
+    btn.disabled  = true;
     try {
         const res = await apiFetch({ action:'editar', id:reservaEnEdicion.id, nombre, fecha, horaInicio, horaFin });
         if(!res.success) throw new Error(res.error);
@@ -292,7 +280,7 @@ async function guardarEdicion(){
         alert('❌ Error al actualizar: ' + e.message);
     } finally {
         btn.innerHTML = '💾 Guardar';
-        btn.disabled = false;
+        btn.disabled  = false;
     }
 }
 
@@ -301,7 +289,7 @@ async function eliminarReserva(){
     if(!confirm(`¿Eliminar la reserva "${reservaEnEdicion.nombre}"? Esta acción no se puede deshacer.`)) return;
     const btn = document.getElementById('btnEliminar');
     btn.innerHTML = '<span class="spinner"></span>Eliminando…';
-    btn.disabled = true;
+    btn.disabled  = true;
     try {
         const res = await apiFetch({ action:'eliminar', id:reservaEnEdicion.id });
         if(!res.success) throw new Error(res.error);
@@ -312,14 +300,12 @@ async function eliminarReserva(){
         alert('❌ Error al eliminar: ' + e.message);
     } finally {
         btn.innerHTML = '🗑️ Eliminar';
-        btn.disabled = false;
+        btn.disabled  = false;
     }
 }
 
-/* ---- helpers ---- */
 function setInfo(msg){ document.getElementById('info').textContent = msg; }
 
-/* ---- eventos ---- */
 document.getElementById('btnVerCal').addEventListener('click', () => {
     const fecha = document.getElementById('semanaInput').value;
     if(!fecha){ alert('Seleccione una fecha'); return; }
@@ -332,7 +318,6 @@ document.getElementById('closeModal').addEventListener('click', cerrarModal);
 document.getElementById('cancelEdit').addEventListener('click', cerrarModal);
 window.addEventListener('click', e => { if(e.target === document.getElementById('editModal')) cerrarModal(); });
 
-/* ---- init ---- */
 const hoy = new Date().toISOString().split('T')[0];
 document.getElementById('semanaInput').min   = hoy;
 document.getElementById('semanaInput').value = hoy;
